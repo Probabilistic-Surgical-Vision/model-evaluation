@@ -11,3 +11,4 @@ ipython
 nbconvert
 tifffile
 opencv-python
+scikit-image

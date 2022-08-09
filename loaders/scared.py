@@ -11,7 +11,6 @@ from torch.utils.data import Dataset
 
 import yaml
 
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
