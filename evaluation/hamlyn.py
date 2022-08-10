@@ -16,7 +16,7 @@ from .utils import Device
 @torch.no_grad()
 def evaluate_ssim(model: Module, loader: DataLoader,
                   save_results_to: Optional[str] = None,
-                  device: Device = 'cpu',no_pbar: bool = False) -> float:
+                  device: Device = 'cpu', no_pbar: bool = False) -> float:
 
     model.eval()
 

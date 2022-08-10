@@ -1,5 +1,3 @@
-import argparse
-import glob
 import os
 import os.path
 from typing import Dict, Optional, Tuple
@@ -42,7 +40,7 @@ class SCAREDKeyframeToImages:
         self.target = target
 
         self.rectify = rectify
-    
+
     def load_camera_parameters(self) -> Parameters:
         camera_path = os.path.join(self.source, self.CAMERA_PARAMETERS)
         camera = cv2.FileStorage(camera_path, cv2.FileStorage_READ)
@@ -52,9 +50,9 @@ class SCAREDKeyframeToImages:
         for key in self.CAMERA_PARAM_KEYS:
             parameter = camera.getNode(key).mat()
             parameters[key] = np.array(parameter, dtype=float)
-        
+
         return parameters
-    
+
     def get_rectify_parameters(self, camera: Parameters,
                                size: ImageSize) -> Parameters:
 
@@ -65,9 +63,9 @@ class SCAREDKeyframeToImages:
 
         rect = cv2.stereoRectify(m1, d1, m2, d2, size, r, t, alpha=0,
                                  flags=cv2.CALIB_ZERO_DISPARITY)
-        
+
         r1, r2, p1, p2, *_ = rect
-        
+
         return {'R1': r1, 'R2': r2, 'P1': p1, 'P2': p2}
 
     def get_rectify_maps(self, camera: Parameters, rectify: Parameters,
@@ -83,7 +81,7 @@ class SCAREDKeyframeToImages:
 
     def get_baseline(self, camera: Parameters) -> float:
         return np.linalg.norm(camera['T'])
-    
+
     def get_focal_length(self, rect: Parameters) -> float:
         return rect['P1'][0, 0]
 
@@ -97,7 +95,9 @@ class SCAREDKeyframeToImages:
     def rectify_depth(self, depth: ndarray, maps: RectifyMaps) -> ndarray:
         return cv2.remap(depth[:, :, 2:3], *maps, cv2.INTER_LINEAR)
 
-    def save_video_images(self, left_maps: RectifyMaps, right_maps: RectifyMaps) -> None:
+    def save_video_images(self, left_maps: RectifyMaps,
+                          right_maps: RectifyMaps) -> None:
+
         video_path = os.path.join(self.source, self.VIDEO_PATH)
 
         left_target_dir = os.path.join(self.target, self.LEFT_IMAGES)
@@ -123,10 +123,12 @@ class SCAREDKeyframeToImages:
 
             cv2.imwrite(left_target, left, [cv2.IMWRITE_PNG_COMPRESSION, 0])
             cv2.imwrite(right_target, right, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-            
+
             i += 1
 
-    def save_keyframes(self, left_maps: RectifyMaps, right_maps: RectifyMaps) -> None:
+    def save_keyframes(self, left_maps: RectifyMaps,
+                       right_maps: RectifyMaps) -> None:
+
         left_source = os.path.join(self.source, self.LEFT_KEYFRAME)
         right_source = os.path.join(self.source, self.RIGHT_KEYFRAME)
 
@@ -140,10 +142,12 @@ class SCAREDKeyframeToImages:
             left = self.rectify_image(left, left_maps)
             right = self.rectify_image(right, right_maps)
 
-        cv2.imwrite(left_target, left [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        cv2.imwrite(left_target, left, [cv2.IMWRITE_PNG_COMPRESSION, 0])
         cv2.imwrite(right_target, right, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
-    def save_depth_maps(self, left_maps: RectifyMaps, right_maps: RectifyMaps) -> None:
+    def save_depth_maps(self, left_maps: RectifyMaps,
+                        right_maps: RectifyMaps) -> None:
+
         left_source = os.path.join(self.source, self.LEFT_KF_DEPTH)
         right_source = os.path.join(self.source, self.RIGHT_KF_DEPTH)
 
@@ -176,7 +180,7 @@ class SCAREDKeyframeToImages:
 
         left_maps = maps['left']
         right_maps = maps['right']
-        
+
         self.save_keyframes(left_maps, right_maps)
         self.save_depth_maps(left_maps, right_maps)
         self.save_video_images(left_maps, right_maps)

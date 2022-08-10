@@ -1,7 +1,7 @@
 import glob
 import os.path
-
 from typing import Dict, Optional
+
 from PIL import Image, ImageFile
 
 from torch import Tensor

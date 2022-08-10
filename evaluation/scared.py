@@ -13,13 +13,18 @@ from .utils import Device
 def evaluate_keyframes(model: Module, loader: DataLoader,
                        min_depth: float, max_depth: float,
                        device: Device = 'cpu', no_pbar: bool = False):
-
     model.eval()
+
+    running_mae = 0
     results = []
+
+    batch_size = loader.batch_size \
+        if loader.batch_size is not None \
+        else len(loader)
 
     tepoch = tqdm.tqdm(loader, unit='batch', disable=no_pbar)
 
-    for keyframe in tepoch:
+    for i, keyframe in enumerate(tepoch):
         images = keyframe['images']
         depth = keyframe['depth']
 
@@ -52,7 +57,11 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
 
         mae = u.mean_absolute_depth(masked_predicted_depth, masked_left_depth)
 
-        tepoch.set_postfix(mae=mae)
         results.append(mae)
+
+        running_mae += mae
+        average_mae = running_mae / ((i+1) * batch_size)
+
+        tepoch.set_postfix(mae=average_mae)
 
     return results

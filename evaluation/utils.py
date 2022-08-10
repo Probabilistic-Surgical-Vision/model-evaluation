@@ -64,4 +64,3 @@ def calculate_ssim(a: Tensor, b: Tensor) -> Tensor:
     b_numpy = b.mean(dim=0, keepdim=True).cpu().numpy()
 
     return structural_similarity(a_numpy, b_numpy)
-
