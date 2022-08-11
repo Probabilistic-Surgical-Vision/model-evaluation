@@ -44,7 +44,7 @@ def main(args: argparse.Namespace) -> None:
 
         pool.apply_async(extract_keyframe, args=(keyframe_config,))
         print(f'Queued {keyframe}')
-    
+
     pool.close()
     pool.join()
 

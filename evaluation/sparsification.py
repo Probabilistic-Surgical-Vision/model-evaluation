@@ -31,26 +31,29 @@ def sparsification_curve(oracle_error: Tensor, predicted_error: Tensor,
         normalised_mean = float(mean / oracle_mean)
 
         curve.append(normalised_mean)
-    
+
     return curve
+
 
 def sparsification_error(oracle_curve: DataPoints,
                          predicted_curve: DataPoints) -> DataPoints:
 
     return predicted_curve - oracle_curve
 
+
 def ause(oracle_curve: DataPoints, predicted_curve: DataPoints) -> float:
     if len(oracle_curve) != len(predicted_curve):
         raise Exception('Oracle and Predicted sparsification '
                         'curves have different step sizes.')
-    
+
     dx = 1 / len(oracle_curve)
     integral = 0
 
     for oracle_error, predicted_error in zip(oracle_curve, predicted_curve):
         integral += (predicted_error - oracle_error) * dx
-    
+
     return integral
+
 
 def aurg(oracle_error: Tensor, predicted_curve: DataPoints) -> float:
     random_error = torch.rand_like(oracle_error)

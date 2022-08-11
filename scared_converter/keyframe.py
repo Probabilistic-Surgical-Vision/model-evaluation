@@ -125,7 +125,7 @@ class SCAREDKeyframeConverter:
         os.makedirs(right_target_dir, exist_ok=True)
 
         video = cv2.VideoCapture(video_path)
-    
+
         i = 0
 
         while video.isOpened():
@@ -209,9 +209,10 @@ class SCAREDKeyframeConverter:
         self.save_depth_maps(left_maps, right_maps)
         self.save_video_images(left_maps, right_maps)
 
+
 if __name__ == '__main__':
     import argparse
-    
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('source', type=str,
