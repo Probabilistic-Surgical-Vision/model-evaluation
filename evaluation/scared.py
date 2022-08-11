@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 
 import tqdm
 
+from . import sparsification as s
+
 from . import utils as u
 from .utils import Device
 

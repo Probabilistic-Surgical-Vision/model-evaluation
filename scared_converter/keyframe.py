@@ -9,22 +9,25 @@ from numpy import ndarray
 
 import tifffile
 
+import json
+
 ImageSize = Tuple[int, int]
 Parameters = Dict[str, ndarray]
 RectifyMaps = Tuple[2 * (ndarray,)]
 
 
-class SCAREDKeyframeToImages:
+class SCAREDKeyframeConverter:
 
     CAMERA_PARAM_KEYS = ('R', 'T', 'M1', 'M2', 'D1', 'D2')
     VIDEO_PATH = os.path.join('data', 'rgb.mp4')
-    CAMERA_PARAMETERS = 'endoscope_calibration.yml'
+    CAMERA_PARAMETERS = 'endoscope_calibration.yaml'
     LEFT_KEYFRAME = 'Left_Image.png'
     RIGHT_KEYFRAME = 'Right_Image.png'
     LEFT_KF_DEPTH = 'left_depth_map.tiff'
     RIGHT_KF_DEPTH = 'right_depth_map.tiff'
     LEFT_IMAGES = 'left'
     RIGHT_IMAGES = 'right'
+    SIMPLE_PARAMETERS = 'parameters.json'
 
     def __init__(self, source: str, target: Optional[str] = None,
                  rectify: bool = True) -> None:
@@ -61,29 +64,32 @@ class SCAREDKeyframeToImages:
         m1, d1 = camera['M1'], np.squeeze(camera['D1'])
         m2, d2 = camera['M2'], np.squeeze(camera['D2'])
 
-        rect = cv2.stereoRectify(m1, d1, m2, d2, size, r, t, alpha=0,
-                                 flags=cv2.CALIB_ZERO_DISPARITY)
+        rectify = cv2.stereoRectify(m1, d1, m2, d2, size, r, t, alpha=0,
+                                    flags=cv2.CALIB_ZERO_DISPARITY)
 
-        r1, r2, p1, p2, *_ = rect
+        r1, r2, p1, p2, *_ = rectify
 
         return {'R1': r1, 'R2': r2, 'P1': p1, 'P2': p2}
 
     def get_rectify_maps(self, camera: Parameters, rectify: Parameters,
                          size: ImageSize, m1type: int = cv2.CV_32FC1) -> dict:
 
-        m1, r1, p1 = camera['M1'], rectify['R1'], rectify['P1']
-        m2, r2, p2 = camera['M2'], rectify['R2'], rectify['P2']
+        m1, d1 = camera['M1'], camera['D1']
+        m2, d2 = camera['M2'], camera['D2']
 
-        left = cv2.initUndistortRectifyMap(m1, m1, r1, p1, size, m1type)
-        right = cv2.initUndistortRectifyMap(m2, m2, r2, p2, size, m1type)
+        r1, p1 = rectify['R1'], rectify['P1']
+        r2, p2 = rectify['R2'], rectify['P2']
+
+        left = cv2.initUndistortRectifyMap(m1, d1, r1, p1, size, m1type)
+        right = cv2.initUndistortRectifyMap(m2, d2, r2, p2, size, m1type)
 
         return {'left': left, 'right': right}
 
     def get_baseline(self, camera: Parameters) -> float:
         return np.linalg.norm(camera['T'])
 
-    def get_focal_length(self, rect: Parameters) -> float:
-        return rect['P1'][0, 0]
+    def get_focal_length(self, rectify: Parameters) -> float:
+        return rectify['P1'][0, 0]
 
     def split_image(self, stereo_image: ndarray) -> RectifyMaps:
         height = stereo_image.shape[0]
@@ -95,6 +101,18 @@ class SCAREDKeyframeToImages:
     def rectify_depth(self, depth: ndarray, maps: RectifyMaps) -> ndarray:
         return cv2.remap(depth[:, :, 2:3], *maps, cv2.INTER_LINEAR)
 
+    def save_baseline_and_focal_length(self, camera: Parameters,
+                                       rectify: Parameters) -> None:
+        parameters = {
+            'focal': self.get_focal_length(rectify),
+            'baseline': self.get_baseline(camera)
+        }
+
+        parameters_path = os.path.join(self.target, self.SIMPLE_PARAMETERS)
+
+        with open(parameters_path, 'w+') as f:
+            json.dump(parameters, f, indent=4)
+
     def save_video_images(self, left_maps: RectifyMaps,
                           right_maps: RectifyMaps) -> None:
 
@@ -103,13 +121,17 @@ class SCAREDKeyframeToImages:
         left_target_dir = os.path.join(self.target, self.LEFT_IMAGES)
         right_target_dir = os.path.join(self.target, self.RIGHT_IMAGES)
 
-        video = cv2.VideoCapture(video_path)
+        os.makedirs(left_target_dir, exist_ok=True)
+        os.makedirs(right_target_dir, exist_ok=True)
 
+        video = cv2.VideoCapture(video_path)
+    
         i = 0
 
-        while video.isOpened:
-            end_flag, image = video.read()
-            if end_flag:
+        while video.isOpened():
+            continue_flag, image = video.read()
+
+            if not continue_flag:
                 break
 
             left, right = self.split_image(image)
@@ -158,11 +180,11 @@ class SCAREDKeyframeToImages:
         right = tifffile.imread(right_source)
 
         if self.rectify:
-            left_rect = self.rectify_depth(left, left_maps)
-            right_rect = self.rectify_depth(right, right_maps)
+            left = self.rectify_depth(left, left_maps)
+            right = self.rectify_depth(right, right_maps)
 
-        tifffile.imwrite(left_target, left_rect)
-        tifffile.imwrite(right_target, right_rect)
+        tifffile.imwrite(left_target, left)
+        tifffile.imwrite(right_target, right)
 
     def extract(self) -> None:
         camera = self.load_camera_parameters()
@@ -171,10 +193,12 @@ class SCAREDKeyframeToImages:
         left_keyframe = cv2.imread(left_keyframe_path)
 
         height, width, _ = left_keyframe.shape
-        image_size = (height, width)
+        image_size = (width, height)
 
         rectify = self.get_rectify_parameters(camera, image_size)
         maps = self.get_rectify_maps(camera, rectify, image_size)
+
+        os.makedirs(self.target, exist_ok=True)
 
         self.save_baseline_and_focal_length(camera, rectify)
 
@@ -184,3 +208,20 @@ class SCAREDKeyframeToImages:
         self.save_keyframes(left_maps, right_maps)
         self.save_depth_maps(left_maps, right_maps)
         self.save_video_images(left_maps, right_maps)
+
+if __name__ == '__main__':
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('source', type=str,
+                        help='The path to the original SCARED keyframe.')
+    parser.add_argument('--target', '-t', default=None, type=str,
+                        help='The path to save the converted keyframe to.')
+    parser.add_argument('--rectify', default=False, action='store_true',
+                        help='Rectify the images when saving.')
+
+    args = parser.parse_args()
+
+    converter = SCAREDKeyframeConverter(**vars(args))
+    converter.extract()

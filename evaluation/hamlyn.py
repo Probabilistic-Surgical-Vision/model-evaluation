@@ -9,6 +9,8 @@ from torchvision.utils import make_grid, save_image
 
 import tqdm
 
+from . import sparsification as s
+
 from . import utils as u
 from .utils import Device
 
