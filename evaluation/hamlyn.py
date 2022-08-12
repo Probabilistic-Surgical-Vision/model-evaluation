@@ -18,7 +18,9 @@ from .utils import Device
 @torch.no_grad()
 def evaluate_ssim(model: Module, loader: DataLoader,
                   save_results_to: Optional[str] = None,
-                  device: Device = 'cpu', no_pbar: bool = False) -> float:
+                  ssim_weight: float = 0.85,
+                  device: Device = 'cpu',
+                  no_pbar: bool = False) -> float:
 
     model.eval()
 
@@ -26,6 +28,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
     running_right_ssim = 0
 
     ssims = []
+    spars_curves = []
 
     batch_size = loader.batch_size \
         if loader.batch_size is not None \
@@ -39,16 +42,35 @@ def evaluate_ssim(model: Module, loader: DataLoader,
         right = image_pair['right'].to(device)
 
         prediction = model(left)
-
-        left_disp, right_disp = torch.split(prediction[:, :2], [1, 1], 1)
+        pred_disp, pred_error = torch.split(prediction, [2, 2], dim=1)
+        left_disp, right_disp = torch.split(pred_disp, [1, 1], 1)
 
         left_recon = u.reconstruct_left_image(left_disp, right)
         right_recon = u.reconstruct_right_image(right_disp, left)
 
-        left_ssim, left_diff = u.calculate_ssim(left, left_recon)
-        right_ssim, right_diff = u.calculate_ssim(right, right_recon)
+        left_score, left_ssim = u.calculate_ssim(left, left_recon)
+        right_score, right_ssim = u.calculate_ssim(right, right_recon)
 
-        ssims.append((left_ssim, right_ssim))
+        ssims.append((left_score, right_score))
+
+        left_l1 = (left - left_recon).abs()
+        right_l1 = (right - right_recon).abs()
+
+        left_ssim = torch.tensor(left_ssim).to(device)
+        right_ssim = torch.tensor(right_ssim).to(device)
+
+        left_error = ((ssim_weight * left_ssim) \
+            + (1 - ssim_weight) * left_l1)
+        right_error = ((ssim_weight * right_ssim) \
+            + (1 - ssim_weight) * right_l1)
+
+        true_error = torch.cat((left_error, right_error), dim=1)
+
+        spars_curve = s.sparsification_curve(true_error, pred_error)
+        oracle_curve = s.sparsification_curve(true_error, true_error)
+        random_curve = s.random_sparsification_curve(true_error)
+
+        spars_curves.append((spars_curve, oracle_curve, random_curve))
 
         average_left_ssim = running_left_ssim / ((i+1) * batch_size)
         average_right_ssim = running_right_ssim / ((i+1) * batch_size)
@@ -57,7 +79,11 @@ def evaluate_ssim(model: Module, loader: DataLoader,
                            right=average_right_ssim)
 
         if save_results_to is not None:
-            differences = torch.cat((left_diff, right_diff), 0)
+            differences = torch.cat((left, right, 
+                                    left_disp, right_disp, 
+                                    left_recon, right_recon, 
+                                    left_ssim, right_ssim), 0)
+
             differences_image = make_grid(differences, nrow=2)
             filepath = os.path.join(save_results_to, f'image_{i:04}.png')
 
@@ -65,7 +91,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
     if no_pbar:
         print(f'{description}:'
-              f'\n\tAverage left SSIM score: {left_ssim:.3f}'
-              f'\n\tAverage right SSIM score: {right_ssim:.3f}')
+              f'\n\tAverage left SSIM score: {left_score:.3f}'
+              f'\n\tAverage right SSIM score: {right_score:.3f}')
 
-    return ssims
+    return ssims, spars_curves

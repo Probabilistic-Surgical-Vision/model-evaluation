@@ -1,4 +1,4 @@
-from typing import Union
+from typing import OrderedDict, Union
 
 from skimage.metrics import structural_similarity
 
@@ -64,3 +64,6 @@ def calculate_ssim(a: Tensor, b: Tensor) -> Tensor:
     b_numpy = b.mean(dim=0, keepdim=True).cpu().numpy()
 
     return structural_similarity(a_numpy, b_numpy)
+
+def prepare_state_dict(state_dict: OrderedDict) -> dict:
+    return {k.replace("module.", ""): v for k, v in state_dict.items()}

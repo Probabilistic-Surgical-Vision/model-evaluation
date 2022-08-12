@@ -80,7 +80,7 @@ class SCAREDKeyframesLoader(Dataset):
         return {
             'images': image_pair,
             'depth': depth_pair,
-            'focal': torch.tensor(camera['focal_length']),
+            'focal': torch.tensor(camera['focal']),
             'baseline': torch.tensor(camera['baseline'])
         }
 

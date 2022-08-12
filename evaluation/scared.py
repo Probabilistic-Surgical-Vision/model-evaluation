@@ -5,8 +5,6 @@ from torch.utils.data import DataLoader
 
 import tqdm
 
-from . import sparsification as s
-
 from . import utils as u
 from .utils import Device
 
@@ -18,7 +16,7 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
     model.eval()
 
     running_mae = 0
-    results = []
+    maes = []
 
     batch_size = loader.batch_size \
         if loader.batch_size is not None \
@@ -59,11 +57,11 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
 
         mae = u.mean_absolute_depth(masked_predicted_depth, masked_left_depth)
 
-        results.append(mae)
+        maes.append(mae)
 
         running_mae += mae
         average_mae = running_mae / ((i+1) * batch_size)
 
         tepoch.set_postfix(mae=average_mae)
 
-    return results
+    return maes

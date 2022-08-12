@@ -55,8 +55,10 @@ def ause(oracle_curve: DataPoints, predicted_curve: DataPoints) -> float:
     return integral
 
 
-def aurg(oracle_error: Tensor, predicted_curve: DataPoints) -> float:
+def random_sparsification_curve(oracle_error: Tensor):
     random_error = torch.rand_like(oracle_error)
-    random_curve = sparsification_curve(oracle_error, random_error)
+    return sparsification_curve(oracle_error, random_error)
 
+
+def aurg(predicted_curve: DataPoints, random_curve: DataPoints) -> float:
     return ause(predicted_curve, random_curve)
