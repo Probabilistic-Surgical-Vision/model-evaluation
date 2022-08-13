@@ -1,0 +1,68 @@
+encoder:
+  load_graph: graphs/nodes_5_seed_42
+  nodes: 5
+  seed: 42
+  layers:
+    - in_channels: 3
+      out_channels: 32
+      kernel_size: 7
+      heads: 8
+    - in_channels: 32
+      out_channels: 64
+      kernel_size: 5
+      heads: 8
+    - in_channels: 64
+      out_channels: 128
+      kernel_size: 3
+      heads: 8
+    - in_channels: 128
+      out_channels: 256
+      kernel_size: 3
+      heads: 8
+    - in_channels: 256
+      out_channels: 512
+      kernel_size: 3
+      heads: 8
+
+decoder:
+  layers:
+    - in_channels: 512
+      feature_in_channels: 256
+      skip_in_channels: 512
+      upsample_channels: 128
+      out_channels: 256
+      skip_out_channels: 512
+      concat_disp: false
+      calculate_disp: false
+    - in_channels: 256
+      feature_in_channels: 128
+      skip_in_channels: 512
+      upsample_channels: 64
+      out_channels: 256
+      skip_out_channels: 256
+      concat_disp: false
+      calculate_disp: true
+    - in_channels: 256
+      feature_in_channels: 64
+      skip_in_channels: 256
+      upsample_channels: 32
+      out_channels: 128
+      skip_out_channels: 128
+      concat_disp: true
+      calculate_disp: true
+    - in_channels: 128
+      feature_in_channels: 32
+      skip_in_channels: 128
+      upsample_channels: 16
+      out_channels: 64
+      skip_out_channels: 64
+      concat_disp: true
+      calculate_disp: true
+    - in_channels: 64
+      feature_in_channels: 3
+      skip_in_channels: 64
+      upsample_channels: 8
+      out_channels: 32
+      skip_out_channels: 32
+      concat_disp: true
+      calculate_disp: true

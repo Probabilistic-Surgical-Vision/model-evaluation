@@ -35,31 +35,32 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
 
         predictions = model(left_image)
 
-        disparity = u.postprocess_disparity(predictions[:, :3])
-        disparity = F.interpolate(disparity, (height, width),
+        left_disp, right_disp = torch.split(predictions[:, :2], [1, 1], dim=1)
+
+        disparity = u.postprocess_disparity(left_disp, right_disp, device)
+        disparity = F.interpolate(disparity, size=(height, width),
                                   mode='bilinear', align_corners=True)
 
         f, b = keyframe['focal'], keyframe['baseline']
         predicted_depth = u.disparity_to_depth(disparity, f, b)
         predicted_depth = torch.clip(predicted_depth, min_depth, max_depth)
 
-        predicted_depth = torch.cat([predicted_depth] * 3, dim=1)
+        left_depth = torch.nan_to_num(left_depth)
+        mask = left_depth.gt(0)
 
         if predicted_depth.isnan().any():
             raise Exception('Predicted depth map contains NaNs.')
         elif left_depth.isnan().any():
             raise Exception('Left depth map contains NaNs.')
 
-        mask = left_depth.gt(0)
-
         masked_predicted_depth = predicted_depth.masked_select(mask)
         masked_left_depth = left_depth.masked_select(mask)
 
         mae = u.mean_absolute_depth(masked_predicted_depth, masked_left_depth)
 
-        maes.append(mae)
+        maes.append(mae.item())
 
-        running_mae += mae
+        running_mae += mae.item()
         average_mae = running_mae / ((i+1) * batch_size)
 
         tepoch.set_postfix(mae=average_mae)

@@ -15,7 +15,7 @@ def sparsification_curve(oracle_error: Tensor, predicted_error: Tensor,
     predicted_error = predicted_error.view(batch_size, -1)
 
     predicted_indices = predicted_error.argsort(1, True)
-    oracle_sorted_by_error = oracle_error.index_select(1, predicted_indices)
+    oracle_sorted_by_error = oracle_error.gather(1, predicted_indices)
 
     oracle_mean = oracle_error.mean(dim=1)
 
@@ -28,7 +28,7 @@ def sparsification_curve(oracle_error: Tensor, predicted_error: Tensor,
         slice = oracle_sorted_by_error[:, removed_pixels:]
 
         mean = slice.mean(dim=1)
-        normalised_mean = float(mean / oracle_mean)
+        normalised_mean = float((mean / oracle_mean).mean())
 
         curve.append(normalised_mean)
 

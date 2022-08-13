@@ -9,7 +9,7 @@ import tifffile
 import torch
 from torch.utils.data import Dataset
 
-import yaml
+import json
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -21,7 +21,7 @@ class SCAREDKeyframesLoader(Dataset):
     RIGHT_IMAGE = 'Right_Image.png'
     LEFT_DEPTH = 'left_depth_map.tiff'
     RIGHT_DEPTH = 'right_depth_map.tiff'
-    CAMERA_PARAMETERS = 'camera_parameters.yml'
+    CAMERA_PARAMETERS = 'parameters.json'
     DEPTH_SIZE = (1024, 1280)
 
     def __init__(self, root: str, split: str,
@@ -59,8 +59,11 @@ class SCAREDKeyframesLoader(Dataset):
         left_depth = tifffile.imread(left_depth_path)
         right_depth = tifffile.imread(right_depth_path)
 
+        left_depth = torch.from_numpy(left_depth).unsqueeze(0)
+        right_depth = torch.from_numpy(right_depth).unsqueeze(0)
+
         with open(camera_path) as f:
-            camera = yaml.load(f, loader=yaml.Loader)
+            camera = json.load(f)
 
         image_pair = {'left': left_image, 'right': right_image}
         depth_pair = {'left': left_depth, 'right': right_depth}

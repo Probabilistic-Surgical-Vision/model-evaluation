@@ -1,3 +1,4 @@
+import os
 import os.path
 from typing import Optional
 
@@ -24,10 +25,10 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
     model.eval()
 
-    running_left_ssim = 0
-    running_right_ssim = 0
+    running_left_score = 0
+    running_right_score = 0
 
-    ssims = []
+    ssim_scores = []
     spars_curves = []
 
     batch_size = loader.batch_size \
@@ -48,23 +49,32 @@ def evaluate_ssim(model: Module, loader: DataLoader,
         left_recon = u.reconstruct_left_image(left_disp, right)
         right_recon = u.reconstruct_right_image(right_disp, left)
 
-        left_score, left_ssim = u.calculate_ssim(left, left_recon)
-        right_score, right_ssim = u.calculate_ssim(right, right_recon)
+        ssims = []
 
-        ssims.append((left_score, right_score))
+        # Can't batch process SSIM so they are done individually
+        for j in range(batch_size):
+            left_score, left_ssim = u.calculate_ssim(left[j], left_recon[j],
+                                                     device=device)
+            right_score, right_ssim = u.calculate_ssim(right[j], right_recon[j],
+                                                       device=device)
+
+            running_left_score += left_score
+            running_right_score += right_score
+
+            ssim_scores.append((left_score, right_score))
+
+            ssims.append(torch.cat((left_ssim, right_ssim), dim=0))
+
+        ssim = torch.stack(ssims, dim=0)
 
         left_l1 = (left - left_recon).abs()
         right_l1 = (right - right_recon).abs()
 
-        left_ssim = torch.tensor(left_ssim).to(device)
-        right_ssim = torch.tensor(right_ssim).to(device)
+        l1 = torch.cat((left_l1, right_l1), dim=1)
 
-        left_error = ((ssim_weight * left_ssim) \
-            + (1 - ssim_weight) * left_l1)
-        right_error = ((ssim_weight * right_ssim) \
-            + (1 - ssim_weight) * right_l1)
+        weight_tensor = torch.full_like(ssim, ssim_weight)
 
-        true_error = torch.cat((left_error, right_error), dim=1)
+        true_error = (weight_tensor * ssim) + ((1 - weight_tensor) * l1)
 
         spars_curve = s.sparsification_curve(true_error, pred_error)
         oracle_curve = s.sparsification_curve(true_error, true_error)
@@ -72,26 +82,34 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
         spars_curves.append((spars_curve, oracle_curve, random_curve))
 
-        average_left_ssim = running_left_ssim / ((i+1) * batch_size)
-        average_right_ssim = running_right_ssim / ((i+1) * batch_size)
+        average_left_ssim = running_left_score / ((i+1) * batch_size)
+        average_right_ssim = running_right_score / ((i+1) * batch_size)
 
         tepoch.set_postfix(left=average_left_ssim,
                            right=average_right_ssim)
 
-        if save_results_to is not None:
-            differences = torch.cat((left, right, 
-                                    left_disp, right_disp, 
-                                    left_recon, right_recon, 
-                                    left_ssim, right_ssim), 0)
+        if save_results_to is not None and i == 0:
+            left_ssim, right_ssim = torch.split(ssim, [3, 3], dim=1)
 
-            differences_image = make_grid(differences, nrow=2)
+            min_disp, max_disp = left_disp[0].min(), left_disp[0].max()
+            left_disp_scaled = (left_disp[0] - min_disp) / (max_disp - min_disp)
+
+            left_disp_heat = u.to_heatmap(left_disp_scaled, device)
+
+            disparity = torch.stack((left[0], left_disp_heat,
+                                    left_recon[0], left_ssim[0]), 0)
+
+            disparity_image = make_grid(disparity, nrow=2)
             filepath = os.path.join(save_results_to, f'image_{i:04}.png')
 
-            save_image(differences_image, filepath)
+            if not os.path.isdir(save_results_to):
+                os.makedirs(save_results_to, exist_ok=True)
+
+            save_image(disparity_image, filepath)
 
     if no_pbar:
         print(f'{description}:'
               f'\n\tAverage left SSIM score: {left_score:.3f}'
               f'\n\tAverage right SSIM score: {right_score:.3f}')
 
-    return ssims, spars_curves
+    return ssim_scores, spars_curves
