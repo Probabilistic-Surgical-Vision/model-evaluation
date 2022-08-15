@@ -30,6 +30,7 @@ class SCAREDKeyframeConverter:
     SIMPLE_PARAMETERS = 'parameters.json'
 
     def __init__(self, source: str, target: Optional[str] = None,
+                 image_size: Tuple[int, int] = (512, 256),
                  rectify: bool = True) -> None:
 
         if target is None:
@@ -41,6 +42,8 @@ class SCAREDKeyframeConverter:
 
         self.source = source
         self.target = target
+
+        self.image_size = image_size
 
         self.rectify = rectify
 
@@ -143,6 +146,11 @@ class SCAREDKeyframeConverter:
             left_target = os.path.join(left_target_dir, f'image_{i:06}.png')
             right_target = os.path.join(right_target_dir, f'image_{i:06}.png')
 
+            left = cv2.resize(left, self.image_size,
+                              interpolation=cv2.INTER_LINEAR)
+            right = cv2.resize(right, self.image_size,
+                               interpolation=cv2.INTER_LINEAR)
+
             cv2.imwrite(left_target, left, [cv2.IMWRITE_PNG_COMPRESSION, 0])
             cv2.imwrite(right_target, right, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
@@ -221,6 +229,8 @@ if __name__ == '__main__':
                         help='The path to save the converted keyframe to.')
     parser.add_argument('--rectify', default=False, action='store_true',
                         help='Rectify the images when saving.')
+    parser.add_argument('--image-size', type=int, nargs=2, default=(512, 256),
+                    help='The size to make all video images.')
 
     args = parser.parse_args()
 

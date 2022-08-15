@@ -15,6 +15,8 @@ parser.add_argument('--rectify', default=False, action='store_true',
                     help='Rectify the images when saving.')
 parser.add_argument('--workers', '-w', default=4, type=int,
                     help='The number of processes to spawn.')
+parser.add_argument('--image-size', type=int, nargs=2, default=(512, 256),
+                    help='The size to make all video images.')
 
 
 def extract_keyframe(config: dict) -> None:
