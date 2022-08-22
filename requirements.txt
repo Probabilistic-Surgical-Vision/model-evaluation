@@ -12,3 +12,4 @@ nbconvert
 tifffile
 opencv-python
 scikit-image
+scikit-learn

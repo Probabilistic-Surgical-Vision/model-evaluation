@@ -92,8 +92,9 @@ def calculate_ssim(a: Tensor, b: Tensor, window_size: int = 11, device: Device =
     a_numpy = a.cpu().numpy()
     b_numpy = b.cpu().numpy()
 
-    score, diff = structural_similarity(a_numpy, b_numpy, channel_axis=0,
-                                        win_size=window_size, full=True)
+    score, diff = structural_similarity(a_numpy, b_numpy, win_size=window_size,
+                                        channel_axis=0,
+                                        full=True)
     
     return score, torch.from_numpy(diff).to(device)
 
@@ -101,8 +102,12 @@ def prepare_state_dict(state_dict: OrderedDict) -> dict:
     return {k.replace("module.", ""): v for k, v in state_dict.items()}
 
 
-def to_heatmap(x: Tensor, device: Device = 'cpu', inverse: bool = False,
-               colour_map: str = 'inferno') -> Tensor:
+def to_heatmap(x: Tensor, scale: bool = True, inverse: bool = False,
+               colour_map: str = 'inferno', device: Device = 'cpu') -> Tensor:
+
+    if scale:
+        x_min, x_max = x.min(), x.max()
+        x = (x - x_min) / (x_max - x_min)
 
     image = x.squeeze(0).cpu().numpy()
     image = 1 - image if inverse else image
@@ -112,6 +117,3 @@ def to_heatmap(x: Tensor, device: Device = 'cpu', inverse: bool = False,
 
     return torch.from_numpy(heatmap).to(device).permute(2, 0, 1)
 
-
-def prepare_depth_map(depth: Tensor, min_depth: float, max_depth: float) -> Tensor:
-    depth = torch.nan_to_num(depth)
