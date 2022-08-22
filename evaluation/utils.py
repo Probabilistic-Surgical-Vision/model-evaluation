@@ -116,4 +116,3 @@ def to_heatmap(x: Tensor, scale: bool = True, inverse: bool = False,
     heatmap = transform(image)[:, :, :3]  # remove alpha channel
 
     return torch.from_numpy(heatmap).to(device).permute(2, 0, 1)
-

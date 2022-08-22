@@ -91,27 +91,26 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
         average_mae = running_mae / (i+1)
 
         if save_results_to is not None:
-            pred_depth = torch.from_numpy(pred_depth[0]).to(device)
-            pred_depth = u.to_heatmap(pred_depth, device=device)
+            pred_depth = torch.from_numpy(pred_depth).to(device)
+            pred_depth = u.to_heatmap(pred_depth[0], device=device)
 
-            true_depth = torch.from_numpy(depth[0]).to(device)
-            true_depth = u.to_heatmap(true_depth, device=device)
+            true_depth = torch.from_numpy(depth).to(device)
+            true_depth = u.to_heatmap(true_depth[0], device=device)
 
             left_recon = u.reconstruct_left_image(left_disp, right)
-
-            difference[mask] = 0
-            difference = torch.from_numpy(difference).to(device)
 
             disparity = torch.stack((left[0], pred_depth,
                                     left_recon[0], true_depth))
 
             if prediction.size(1) == 4:
-                uncertainty = u.to_heatmap(uncertainty[0, 0:1], device=device)
+                left_unc, _ = torch.split(prediction[:, 2:], [1, 1], dim=1)
+                left_unc = u.to_heatmap(left_unc[0], device=device)
 
-                difference[mask] = 0
+                #difference[mask] = 0
                 difference = torch.from_numpy(difference).to(device)
-
-                error = torch.stack((uncertainty, difference))
+                difference = u.to_heatmap(difference[0], device=device)
+                
+                error = torch.stack((left_unc, difference))
                 disparity = torch.cat((disparity, error))
 
             disparity_image = make_grid(disparity, nrow=2)
