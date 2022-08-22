@@ -20,6 +20,7 @@ from .utils import Device
 def evaluate_ssim(model: Module, loader: DataLoader,
                   save_results_to: Optional[str] = None,
                   ssim_weight: float = 0.85,
+                  save_every: int = 50,
                   device: Device = 'cpu',
                   no_pbar: bool = False) -> float:
 
@@ -76,6 +77,12 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
         true_error = (weight_tensor * ssim) + ((1 - weight_tensor) * l1)
 
+        left_error, right_error = torch.split(true_error, [3, 3], dim=1)
+        left_error = left_error.mean(1, True)
+        right_error = right_error.mean(1, True)
+
+        true_error = torch.cat((left_error, right_error), dim=1)
+
         spars_curve = s.sparsification_curve(true_error, pred_error)
         oracle_curve = s.sparsification_curve(true_error, true_error)
         random_curve = s.random_sparsification_curve(true_error)
@@ -88,7 +95,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
         tepoch.set_postfix(left=average_left_ssim,
                            right=average_right_ssim)
 
-        if save_results_to is not None and i == 0:
+        if save_results_to is not None and i % save_every == 0:
             left_ssim, right_ssim = torch.split(ssim, [3, 3], dim=1)
 
             min_disp, max_disp = left_disp[0].min(), left_disp[0].max()
@@ -97,7 +104,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
             left_disp_heat = u.to_heatmap(left_disp_scaled, device)
 
             disparity = torch.stack((left[0], left_disp_heat,
-                                    left_recon[0], left_ssim[0]), 0)
+                                    left_recon[0], left_ssim[0]))
 
             disparity_image = make_grid(disparity, nrow=2)
             filepath = os.path.join(save_results_to, f'image_{i:04}.png')

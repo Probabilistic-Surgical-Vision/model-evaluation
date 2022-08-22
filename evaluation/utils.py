@@ -88,13 +88,12 @@ def reconstruct_right_image(right_disparity: Tensor,
     return reconstruct(right_disparity, left_image)
 
 
-def calculate_ssim(a: Tensor, b: Tensor, device: Device = 'cpu') -> Tensor:
+def calculate_ssim(a: Tensor, b: Tensor, window_size: int = 11, device: Device = 'cpu') -> Tensor:
     a_numpy = a.cpu().numpy()
     b_numpy = b.cpu().numpy()
 
-    score, diff = structural_similarity(a_numpy, b_numpy,
-                                        channel_axis=0,
-                                        full=True)
+    score, diff = structural_similarity(a_numpy, b_numpy, channel_axis=0,
+                                        win_size=window_size, full=True)
     
     return score, torch.from_numpy(diff).to(device)
 

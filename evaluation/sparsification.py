@@ -21,7 +21,7 @@ def sparsification_curve(oracle_error: Tensor, predicted_error: Tensor,
 
     curve = []
 
-    for step in range(steps + 1):
+    for step in range(steps):
         fraction = step / steps
         removed_pixels = int(fraction * oracle_error.size(1))
 
