@@ -10,7 +10,7 @@ from torchvision.utils import make_grid, save_image
 
 import tqdm
 
-from . import sparsification
+from . import sparsification as spars
 
 from . import utils as u
 from .utils import Device
@@ -40,12 +40,12 @@ def evaluate_ssim(model: Module, loader: DataLoader,
     description = 'SSIM Evaluation'
     tepoch = tqdm.tqdm(loader, description, unit='batch', disable=no_pbar)
 
-    for i, image_pair in enumerate(tepoch):        
+    for i, image_pair in enumerate(tepoch):
         left = image_pair['left'].to(device)
         right = image_pair['right'].to(device)
 
         prediction = model(left)
-        
+
         disparity = prediction[:, :2]
         left_disp, right_disp = torch.split(disparity, [1, 1], 1)
 
@@ -90,18 +90,21 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
             true_error = (weight_tensor * (1 - ssim).abs()) \
                 + ((1 - weight_tensor) * l1)
-            
+
             left_error, right_error = torch.split(true_error, [3, 3], dim=1)
             true_error = torch.cat((right_error.mean(1, True),
                                    left_error.mean(1, True)), dim=1)
 
-            oracle = sparsification.curve(true_error, true_error, kernel)
+            oracle = spars.curve(true_error, true_error, kernel)
 
-            pred_curve = sparsification.curve(true_error, uncertainty, kernel)
-            random_curve = sparsification.random_curve(true_error, kernel)
+            pred_curve = spars.curve(true_error, uncertainty, kernel)
+            random_curve = spars.random_curve(true_error, kernel)
+
+            oracle = oracle.cpu()
+            pred_curve = pred_curve.cpu()
+            random_curve = random_curve.cpu()
 
             spars_curves.append((pred_curve, oracle, random_curve))
-
 
         if save_results_to is not None and i % save_every == 0:
             left_disp = u.to_heatmap(left_disp[0], device=device)

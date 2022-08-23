@@ -21,8 +21,9 @@ def disparity_to_depth(disparity: Tensor, focal_length: Tensor,
     return focal_length * (baseline / 1000) / disparity
 
 
-def postprocess_disparity(left: Tensor, right: Tensor, device: Device = 'cpu',
-                          alpha: float = 20, beta: float = 0.05) -> Tensor:
+def postprocess_disparity(left: Tensor, right: Tensor,
+                          device: Device = 'cpu', alpha: float = 20,
+                          beta: float = 0.05) -> Tensor:
 
     left_disp = left.cpu().numpy()
     right_disp = right.cpu().numpy()
@@ -88,15 +89,19 @@ def reconstruct_right_image(right_disparity: Tensor,
     return reconstruct(right_disparity, left_image)
 
 
-def calculate_ssim(a: Tensor, b: Tensor, window_size: int = 11, device: Device = 'cpu') -> Tensor:
+def calculate_ssim(a: Tensor, b: Tensor, window_size: int = 11,
+                   device: Device = 'cpu') -> Tensor:
+
     a_numpy = a.cpu().numpy()
     b_numpy = b.cpu().numpy()
 
-    score, diff = structural_similarity(a_numpy, b_numpy, win_size=window_size,
+    score, diff = structural_similarity(a_numpy, b_numpy,
+                                        win_size=window_size,
                                         channel_axis=0,
                                         full=True)
-    
+
     return score, torch.from_numpy(diff).to(device)
+
 
 def prepare_state_dict(state_dict: OrderedDict) -> dict:
     return {k.replace("module.", ""): v for k, v in state_dict.items()}

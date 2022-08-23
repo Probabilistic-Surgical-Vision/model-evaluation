@@ -27,7 +27,7 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
     model.eval()
 
     running_mae = 0
-    
+
     metrics = []
     maes = []
 
@@ -39,11 +39,11 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
     for i, keyframe in enumerate(tepoch):
         images = keyframe['images']
         depth = keyframe['depth']
-        
+
         if camera_parameters is not None:
             focal = camera_parameters['focal_length']
             base = camera_parameters['baseline']
-            
+
             f = torch.tensor([focal]).to(device)
             b = torch.tensor([base]).to(device)
         else:
@@ -67,20 +67,20 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
         f, b = keyframe['focal'].to(device), keyframe['baseline'].to(device)
         pred_depth = u.disparity_to_depth(disparity, f, b)
         pred_depth = torch.clip(pred_depth, min_depth, max_depth)
-        
+
         pred_depth = pred_depth.cpu().numpy()
         depth = depth.cpu().numpy()
         depth = np.nan_to_num(depth)
-        
+
         mask = depth < 0.1
-        
+
         difference = np.abs(pred_depth - depth)
         error_image = np.ma.array(difference, mask=mask)
         mean_error = error_image.mean()
 
         mask = np.logical_and(depth > min_depth,
                               depth < max_depth)
-        
+
         keyframe_metrics = error_metrics(pred_depth[mask],
                                          depth[mask])
 
@@ -106,10 +106,9 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
                 left_unc, _ = torch.split(prediction[:, 2:], [1, 1], dim=1)
                 left_unc = u.to_heatmap(left_unc[0], device=device)
 
-                #difference[mask] = 0
                 difference = torch.from_numpy(difference).to(device)
                 difference = u.to_heatmap(difference[0], device=device)
-                
+
                 error = torch.stack((left_unc, difference))
                 disparity = torch.cat((disparity, error))
 

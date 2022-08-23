@@ -230,7 +230,7 @@ if __name__ == '__main__':
     parser.add_argument('--rectify', default=False, action='store_true',
                         help='Rectify the images when saving.')
     parser.add_argument('--image-size', type=int, nargs=2, default=(512, 256),
-                    help='The size to make all video images.')
+                        help='The size to make all video images.')
 
     args = parser.parse_args()
 
