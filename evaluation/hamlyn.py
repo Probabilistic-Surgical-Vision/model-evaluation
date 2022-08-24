@@ -8,6 +8,9 @@ from torch.utils.data import DataLoader
 
 from torchvision.utils import make_grid, save_image
 
+from torchmetrics.functional import \
+    structural_similarity_index_measure as ssim
+
 import tqdm
 
 from . import sparsification as spars
@@ -33,10 +36,6 @@ def evaluate_ssim(model: Module, loader: DataLoader,
     ssim_scores = []
     spars_curves = []
 
-    batch_size = loader.batch_size \
-        if loader.batch_size is not None \
-        else len(loader)
-
     description = 'SSIM Evaluation'
     tepoch = tqdm.tqdm(loader, description, unit='batch', disable=no_pbar)
 
@@ -52,28 +51,22 @@ def evaluate_ssim(model: Module, loader: DataLoader,
         left_recon = u.reconstruct_left_image(left_disp, right)
         right_recon = u.reconstruct_right_image(right_disp, left)
 
-        ssims = []
+        left_scores, left_ssims = ssim(left_recon, left,
+                                       kernel_size=kernel,
+                                       return_full_image=True,
+                                       reduction='none')
+        right_scores, right_ssims = ssim(right_recon, right,
+                                         kernel_size=kernel,
+                                         return_full_image=True,
+                                         reduction='none')
 
-        # Can't batch process SSIM so they are done individually
-        for j in range(batch_size):
-            left_score, left_ssim = u.calculate_ssim(left[j],
-                                                     left_recon[j],
-                                                     device=device)
-            right_score, right_ssim = u.calculate_ssim(right[j],
-                                                       right_recon[j],
-                                                       device=device)
+        ssims = torch.cat((left_ssims, right_ssims), dim=1)
 
-            running_left_score += left_score
-            running_right_score += right_score
+        running_left_score += left_scores.mean()
+        running_right_score += right_scores.mean()
 
-            ssim_scores.append((left_score, right_score))
-
-            ssims.append(torch.cat((left_ssim, right_ssim), dim=0))
-
-        ssim = torch.stack(ssims, dim=0)
-
-        average_left_ssim = running_left_score / ((i+1) * batch_size)
-        average_right_ssim = running_right_score / ((i+1) * batch_size)
+        average_left_ssim = running_left_score / (i+1)
+        average_right_ssim = running_right_score / (i+1)
 
         tepoch.set_postfix(left=average_left_ssim,
                            right=average_right_ssim)
@@ -86,9 +79,9 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
             l1 = torch.cat((left_l1, right_l1), dim=1)
 
-            weight_tensor = torch.full_like(ssim, ssim_weight)
+            weight_tensor = torch.full_like(ssims, ssim_weight)
 
-            true_error = (weight_tensor * (1 - ssim).abs()) \
+            true_error = (weight_tensor * ((1 - ssims) / 2).abs()) \
                 + ((1 - weight_tensor) * l1)
 
             left_error, right_error = torch.split(true_error, [3, 3], dim=1)
@@ -109,7 +102,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
         if save_results_to is not None and i % save_every == 0:
             left_disp = u.to_heatmap(left_disp[0], device=device)
             disparity = torch.stack((left[0], left_disp,
-                                    left_recon[0], ssim[0, 0:3]))
+                                    left_recon[0], ssims[0, 0:3]))
 
             if prediction.size(1) == 4:
                 uncertainty = u.to_heatmap(uncertainty[0, 0:1], device=device)
@@ -128,7 +121,7 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
     if no_pbar:
         print(f'{description}:'
-              f'\n\tAverage left SSIM score: {left_score:.3f}'
-              f'\n\tAverage right SSIM score: {right_score:.3f}')
+              f'\n\tAverage left SSIM score: {average_left_ssim:.3f}'
+              f'\n\tAverage right SSIM score: {average_right_ssim:.3f}')
 
     return ssim_scores, spars_curves
