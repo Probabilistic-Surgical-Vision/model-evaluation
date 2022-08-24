@@ -62,8 +62,8 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
         ssims = torch.cat((left_ssims, right_ssims), dim=1)
 
-        running_left_score += left_scores.mean()
-        running_right_score += right_scores.mean()
+        running_left_score += left_scores.mean().item()
+        running_right_score += right_scores.mean().item()
 
         average_left_ssim = running_left_score / (i+1)
         average_right_ssim = running_right_score / (i+1)
