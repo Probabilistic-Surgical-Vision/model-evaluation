@@ -88,10 +88,12 @@ def evaluate_ssim(model: Module, loader: DataLoader,
             true_error = torch.cat((right_error.mean(1, True),
                                    left_error.mean(1, True)), dim=1)
 
-            oracle = spars.curve(true_error, true_error, kernel)
-
-            pred_curve = spars.curve(true_error, uncertainty, kernel)
-            random_curve = spars.random_curve(true_error, kernel)
+            oracle = spars.curve(true_error, true_error,
+                                 kernel, device=device)
+            pred_curve = spars.curve(true_error, uncertainty,
+                                     kernel, device=device)
+            random_curve = spars.random_curve(true_error, kernel,
+                                              device=device)
 
             oracle = oracle.cpu()
             pred_curve = pred_curve.cpu()

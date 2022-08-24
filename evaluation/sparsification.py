@@ -36,9 +36,11 @@ def curve(oracle_error: Tensor, predicted_error: Tensor,
     return torch.tensor(curve, device=device)
 
 
-def random_curve(oracle_error: Tensor, kernel_size: int = 11) -> Tensor:
+def random_curve(oracle_error: Tensor, kernel_size: int = 11,
+                 steps: int = 100, device: Device = 'cpu') -> Tensor:
+
     random_error = torch.rand_like(oracle_error)
-    return curve(oracle_error, random_error, kernel_size)
+    return curve(oracle_error, random_error, kernel_size, steps, device)
 
 
 def error(oracle_curve: Tensor,
