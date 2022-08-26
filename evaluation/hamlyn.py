@@ -32,6 +32,8 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
     running_left_score = 0
     running_right_score = 0
+    running_ause = 0
+    running_aurg = 0
 
     ssim_scores = []
     spars_curves = []
@@ -62,14 +64,16 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
         ssims = torch.cat((left_ssims, right_ssims), dim=1)
 
-        running_left_score += left_scores.mean().item()
-        running_right_score += right_scores.mean().item()
+        left_score = left_scores.mean().item()
+        right_score = right_scores.mean().item()
+
+        ssim_scores.append((left_score, right_score))
+
+        running_left_score += left_score
+        running_right_score += right_score
 
         average_left_ssim = running_left_score / (i+1)
         average_right_ssim = running_right_score / (i+1)
-
-        tepoch.set_postfix(left=average_left_ssim,
-                           right=average_right_ssim)
 
         if prediction.size(1) == 4:
             uncertainty = prediction[:, 2:]
@@ -90,16 +94,34 @@ def evaluate_ssim(model: Module, loader: DataLoader,
 
             oracle = spars.curve(true_error, true_error,
                                  kernel, device=device)
-            pred_curve = spars.curve(true_error, uncertainty,
+            pred_spars = spars.curve(true_error, uncertainty,
                                      kernel, device=device)
-            random_curve = spars.random_curve(true_error, kernel,
+            random_spars = spars.random_curve(true_error, kernel,
                                               device=device)
 
-            oracle = oracle.cpu()
-            pred_curve = pred_curve.cpu()
-            random_curve = random_curve.cpu()
+            ause = spars.ause(oracle, pred_spars)
+            aurg = spars.aurg(pred_spars, random_spars)
 
-            spars_curves.append((pred_curve, oracle, random_curve))
+            running_ause += ause.item()
+            average_ause = running_ause / (i+1)
+
+            running_aurg += aurg.item()
+            average_aurg = running_aurg / (i+1)
+
+            oracle = oracle.cpu()
+            pred_spars = pred_spars.cpu()
+            random_spars = random_spars.cpu()
+
+            spars_curves.append((pred_spars, oracle, random_spars))
+
+            tepoch.set_postfix(left=average_left_ssim,
+                               right=average_right_ssim,
+                               ause=average_ause,
+                               aurg=average_aurg)
+
+        else:
+            tepoch.set_postfix(left=average_left_ssim,
+                               right=average_right_ssim)
 
         if save_results_to is not None and i % save_every == 0:
             left_disp = u.to_heatmap(left_disp[0], device=device)
