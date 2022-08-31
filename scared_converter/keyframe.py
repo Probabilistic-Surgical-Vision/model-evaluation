@@ -17,7 +17,11 @@ RectifyMaps = Tuple[2 * (ndarray,)]
 
 
 class SCAREDKeyframeConverter:
+    """Class to convert one keyframe from SCARED to stereo pairs.
 
+    Code adapted from:
+        https://github.com/llreda/Stereo_Matching/
+    """
     CAMERA_PARAM_KEYS = ('R', 'T', 'M1', 'M2', 'D1', 'D2')
     VIDEO_PATH = os.path.join('data', 'rgb.mp4')
     CAMERA_PARAMETERS = 'endoscope_calibration.yaml'

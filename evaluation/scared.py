@@ -57,7 +57,7 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
 
         _, _, height, width = depth.size()
 
-        prediction = model(left)
+        prediction = model(left, scale=0.3)
         prediction = F.interpolate(prediction, size=(height, width),
                                    mode='bilinear', align_corners=True)
 
@@ -77,6 +77,7 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
         difference = np.abs(pred_depth - depth)
         error_image = np.ma.array(difference, mask=mask)
         mean_error = error_image.mean()
+        var_error = error_image.var()
 
         mask = np.logical_and(depth > min_depth,
                               depth < max_depth)
@@ -84,42 +85,53 @@ def evaluate_keyframes(model: Module, loader: DataLoader,
         keyframe_metrics = error_metrics(pred_depth[mask],
                                          depth[mask])
 
-        maes.append(mean_error)
+        maes.append((mean_error, var_error))
         metrics.append(keyframe_metrics)
 
         running_mae += mean_error
         average_mae = running_mae / (i+1)
 
         if save_results_to is not None:
-            pred_depth = torch.from_numpy(pred_depth).to(device)
-            pred_depth = u.to_heatmap(pred_depth[0], device=device)
+            keyframe_save_to = os.path.join(save_results_to, f'keyframe_{i}')
 
-            true_depth = torch.from_numpy(depth).to(device)
-            true_depth = u.to_heatmap(true_depth[0], device=device)
+            if not os.path.isdir(keyframe_save_to):
+                os.makedirs(keyframe_save_to, exist_ok=True)
 
+            disparity_image = u.to_heatmap(disparity[0], device=device)
+            disparity_path = os.path.join(keyframe_save_to, 'disparity.png')
+            save_image(disparity_image, disparity_path)
+    
+            depth_image = torch.from_numpy(depth).to(device)
+            depth_path = os.path.join(keyframe_save_to, 'depth.png')
+            save_image(depth_image, depth_path)
+            
             left_recon = u.reconstruct_left_image(left_disp, right)
-
-            disparity = torch.stack((left[0], pred_depth,
-                                    left_recon[0], true_depth))
-
+            left_recon_path = os.path.join(keyframe_save_to, 'reconstruction.png')
+            save_image(left_recon[0], left_recon_path)
+            
             if prediction.size(1) == 4:
-                left_unc, _ = torch.split(prediction[:, 2:], [1, 1], dim=1)
-                left_unc = u.to_heatmap(left_unc[0], device=device)
+                left_uncertainty, _ = torch.split(prediction[:, 2:], [1, 1], dim=1)
+                left_uncertainty_image = u.to_heatmap(left_uncertainty[0], device=device)
+                
+                left_uncertainty_path = os.path.join(keyframe_save_to, 'uncertainty.png')
+                save_image(left_uncertainty_image, left_uncertainty_path)
+    
+                single_row_images = torch.stack((left[0], disparity_image,
+                                                 left_uncertainty_image))
+                single_row_image = make_grid(single_row_images, nrow=3)
 
-                difference = torch.from_numpy(difference).to(device)
-                difference = u.to_heatmap(difference[0], device=device)
+            else:
+                single_row_images = torch.stack((left[0], disparity_image))
+                single_row_image = make_grid(single_row_images, nrow=2)
 
-                error = torch.stack((left_unc, difference))
-                disparity = torch.cat((disparity, error))
+            single_row_path = os.path.join(save_results_to, 'single_rows')
+            filepath = os.path.join(single_row_path, f'keyframe_{i}.png')
 
-            disparity_image = make_grid(disparity, nrow=2)
-            filepath = os.path.join(save_results_to, f'image_{i:04}.png')
+            if not os.path.isdir(single_row_path):
+                os.makedirs(single_row_path, exist_ok=True)
 
-            if not os.path.isdir(save_results_to):
-                os.makedirs(save_results_to, exist_ok=True)
-
-            save_image(disparity_image, filepath)
-
+            save_image(single_row_image, filepath)
+        
         tepoch.set_postfix(mae=average_mae)
 
     return maes, metrics

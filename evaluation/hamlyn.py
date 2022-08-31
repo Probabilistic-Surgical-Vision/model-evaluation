@@ -89,8 +89,8 @@ def evaluate_ssim(model: Module, loader: DataLoader,
                 + ((1 - weight_tensor) * l1)
 
             left_error, right_error = torch.split(true_error, [3, 3], dim=1)
-            true_error = torch.cat((right_error.mean(1, True),
-                                   left_error.mean(1, True)), dim=1)
+            true_error = torch.cat((left_error.mean(1, True),
+                                   right_error.mean(1, True)), dim=1)
 
             oracle = spars.curve(true_error, true_error,
                                  kernel, device=device)
@@ -124,6 +124,51 @@ def evaluate_ssim(model: Module, loader: DataLoader,
                                right=average_right_ssim)
 
         if save_results_to is not None and i % save_every == 0:
+            batch_save_to = os.path.join(save_results_to, f'batch_{i:04}')
+            
+            if not os.path.isdir(batch_save_to):
+                os.makedirs(batch_save_to, exist_ok=True)
+            
+            left_path = os.path.join(batch_save_to, 'image.png')
+            save_image(left[0], left_path)
+            
+            left_disp_image = u.to_heatmap(left_disp[0], device=device)
+            left_disp_path = os.path.join(batch_save_to, 'disparity.png')
+            save_image(left_disp_image, left_disp_path)
+            
+            left_recon_path = os.path.join(batch_save_to, 'reconstruction.png')
+            save_image(left_recon[0], left_recon_path)
+            
+            left_ssim_path = os.path.join(batch_save_to, 'ssim.png')
+            save_image(ssims[0, 0:3], left_ssim_path)
+            
+            if prediction.size(1) == 4:
+                left_uncertainty_image = u.to_heatmap(uncertainty[0, 0:1], device=device)
+                left_uncertainty_path = os.path.join(batch_save_to, 'uncertainty.png')
+                save_image(left_uncertainty_image, left_uncertainty_path)
+                
+                left_error_image = u.to_heatmap(true_error[0, 0:1], device=device)
+                left_error_path = os.path.join(batch_save_to, 'error.png')
+                save_image(left_error_image, left_error_path)
+
+                single_row_images = torch.stack((left[0], left_disp_image,
+                                                 left_uncertainty_image,
+                                                 left_error_image))
+            else:
+                single_row_images = torch.stack((left[0], left_disp_image,
+                                                 ssims[0, 0:3]))
+        
+            single_row_image = make_grid(single_row_images, nrow=4)
+
+            single_row_path = os.path.join(save_results_to, 'single_rows')
+            filepath = os.path.join(single_row_path, f'image_{i:04}.png')
+
+            if not os.path.isdir(single_row_path):
+                os.makedirs(single_row_path, exist_ok=True)
+
+            save_image(single_row_image, filepath)
+            
+            """
             left_disp = u.to_heatmap(left_disp[0], device=device)
             disparity = torch.stack((left[0], left_disp,
                                     left_recon[0], ssims[0, 0:3]))
@@ -142,6 +187,20 @@ def evaluate_ssim(model: Module, loader: DataLoader,
                 os.makedirs(save_results_to, exist_ok=True)
 
             save_image(disparity_image, filepath)
+            
+            single_row_images = torch.stack((left[0], left_disp,
+                                             uncertainty, true_error))
+        
+            single_row_image = make_grid(single_row_images, nrow=4)
+
+            single_row_path = os.path.join(save_results_to, 'single_rows')
+            filepath = os.path.join(single_row_path, f'image_{i:04}.png')
+
+            if not os.path.isdir(single_row_path):
+                os.makedirs(single_row_path, exist_ok=True)
+
+            save_image(single_row_image, filepath)
+            """
 
     if no_pbar:
         print(f'{description}:'
